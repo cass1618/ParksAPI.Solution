@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ParksAPI.Models;
+using System.Linq;
 
 namespace ParksAPI.Controllers
 {
@@ -19,9 +20,21 @@ namespace ParksAPI.Controllers
 
     // GET api/parks
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Park>>> Get()
+    public async Task<ActionResult<IEnumerable<Park>>> Get(string parkname, string size)
     {
-        return await _db.Parks.ToListAsync();
+      var query = _db.Parks.AsQueryable();
+
+      if (parkname != null)
+      {
+        query = query.Where(entry => entry.ParkName == parkname);
+      }
+
+      if (size != null)
+      {
+        query = query.Where(entry => entry.Size == size);
+      }      
+
+        return await query.ToListAsync();
     }
 
     // POST api/parks
@@ -52,36 +65,51 @@ namespace ParksAPI.Controllers
     [HttpPut("{id}")]
     public async Task<IActionResult> Put(int id, Park Park)
     {
-      if (id != Park.ParkId)
-      {
-        return BadRequest();
-      }
+        if (id != Park.ParkId)
+        {
+          return BadRequest();
+        }
 
-      _db.Entry(Park).State = EntityState.Modified;
+        _db.Entry(Park).State = EntityState.Modified;
 
-      try
-      {
-        await _db.SaveChangesAsync();
-      }
-      catch (DbUpdateConcurrencyException)
-      {
-        if (!ParkExists(id))
+        try
+        {
+          await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ParkExists(id))
+            {
+              return NotFound();
+            }
+            else
+            {
+              throw;
+            }
+        }
+
+        return NoContent();
+    }
+
+    // DELETE: api/Parks/id
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeletePark(int id)
+    {
+        var park = await _db.Parks.FindAsync(id);
+        if (park == null)
         {
           return NotFound();
         }
-        else
-        {
-          throw;
-        }
-      }
 
-      return NoContent();
+        _db.Parks.Remove(park);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
     }
-...
+
     private bool ParkExists(int id)
     {
-      return _db.Parks.Any(e => e.ParkId == id);
+        return _db.Parks.Any(e => e.ParkId == id);
     }
-  
   }
 }
